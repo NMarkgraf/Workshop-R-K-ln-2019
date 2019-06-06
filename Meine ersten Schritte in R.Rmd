@@ -12,7 +12,7 @@ library(mosaic)
 
 ## Vorbereitung
 
-Wir starten als erstes das Paket *mosaic* und laden die Tabelle *Houses* aus dem Internet:
+Wir starten damit, als erstes das Paket *mosaic* zu laden und den Datensatz *Houses* direkt aus dem Internet in den Speicher zu laden:
 
 ```{r}
 # Paket laden
@@ -25,14 +25,36 @@ daten_url <- "http://statistix.org/Data/SaratogaHouses.csv"
 Houses <- read.csv2(daten_url)
 ```
 
-Einen kleinen Überblick liefert der Befehl *inspect()*:
+Einen kleinen Überblick über den Datensatz liefert der Befehl `inspect()`:
 
 ```{r}
 inspect(Houses)
 ```
 
+Wer direkt in den Datensatz gucken möchte, der kann sich den Anfang und das Ende einmal ansehen:
+```{r}
+# Die ersten Beobachtungen (Zeilen):
+head(Houses)
+```
 
-## Eine kurze EDA einer kategorialer Variabel (Klimaanlage)
+```{r}
+# Die letzten Beobachtungen (Zeilen):
+tail(Houses)
+```
+
+
+
+## Schlaglichter kleiner explorativer Datenanalysen (EDA)
+
+Um zu sehen wir sehr der Ansatz 
+
+```{r, eval=FALSE}
+analysiere( mein.y ~ mein.x, data = meine.Daten)
+```
+
+von *mosaic* trägt hier ein paar kleine Ansätze für explorative Datenanalysen (EDA) und ein paar Tests.
+
+### Eine kurze EDA einer kategorialer Variabel (Klimaanlage)
 
 ```{r}
 # Die Verteilung als Säulendiagramm:
@@ -50,7 +72,7 @@ prop( ~ Klimaanlage, success="Ja", data=Houses)
 ```
 
 
-## Eine kurze EDA einer numerischen Variabel (Preis)
+### Eine kurze EDA einer numerischen Variabel (Preis)
 
 ```{r}
 # Die Verteilung als Histogramm
@@ -68,7 +90,7 @@ mean( ~ Preis, data=Houses)
 ```
 
 
-## Eine kurze EDA zweier kategorialer Variabeln (Kamin und Klimaanlage)
+### Eine kurze EDA zweier kategorialer Variabeln (Kamin und Klimaanlage)
 
 ```{r}
 # Grafische Darstellung als Mosaikplot
@@ -86,13 +108,12 @@ xchisq.test(Kamin ~ Klimaanlage, data=Houses)
 ```
 
 
-##  Eine kurze EDA zweier numerischer Variabeln (Preis und Wohnflaeche)
+###  Eine kurze EDA zweier numerischer Variabeln (Preis und Wohnflaeche)
 
 ```{r}
 # Streudiagramm
 gf_point(Preis ~ Wohnflaeche, data=Houses)
 ```
-
 
 ```{r}
 # Korrelationskoeffizent der Stichprobe
@@ -106,7 +127,7 @@ cor.test(Preis ~ Wohnflaeche, data=Houses)
 
 
 
-## Hat eine Klimaanlage einen Einfluss darauf ob es einen Kamin gibt?
+### Hat eine Klimaanlage einen Einfluss darauf ob es einen Kamin gibt?
 
 ```{r}
 # Säulendiagramme als Visualisierung der Situation
@@ -127,4 +148,129 @@ prop.test( Kamin ~ Klimaanlage,
            success = "Ja",
            data=Houses)
 ```
+
+### Hat ein Kamin einen Einfluss auf den Preis des Hauses?
+
+```{r}
+# Säulendiagramme als Visualisierung der Situation
+gf_histogram( ~ Preis | Kamin, data= Houses)
+```
+
+
+```{r}
+# Anteilswerte
+mean( Preis ~ Kamin,
+      data=Houses)
+```
+
+```{r}
+# Klassischer t-Test (A/B-Test):
+t.test( Preis ~ Kamin,
+           data=Houses)
+```
+
+## SBI ist nicht (nur) Sally Bollywood Investigation
+
+SBI heißt für uns *S*imulations*b*asierte *I*nferenz. Wir können die beiden Tests von oben (Anteilswertstest und t-Test) besser mit den Methoden der SBI lösen:
+
+### Zusammenhang zwischen Kamin und Klimaanlage?
+
+Wir haben oben mit dem folgenden klassischem Anteilswerttests gearbeitet und vielleicht haben Sie die Werte darin auch schon interprätiert.
+```{r eval=FALSE}
+# Anteilswertstest
+prop.test( Kamin ~ Klimaanlage,
+           success = "Ja",
+           data=Houses)
+```
+
+Wir wollen nun mit den Methoden aus der SBI das Problem erneut lösen:
+
+1. Teststatistik wählen
+
+Wir entscheiden uns für die Antweilswertsdifferenz und damit für `diffprop()`:
+
+```{r}
+propdiff.stipro <- diffprop(Kamin ~ Klimaanlage, success = "Ja", data=Houses)
+propdiff.stipro
+```
+
+Wegen 
+```{r}
+prop(Kamin ~ Klimaanlage, success="Ja", data=Houses)
+```
+betrachten wir also 
+
+$$
+ \hat\pi_{\text{Mit Klimaanlage}} - \hat\pi_{\text{Ohne Klimaanlage}} = `r propdiff.stipro` 
+$$
+
+Die Frage ist nun ob wir diesen Effekt auch in der Population erwarten können? 
+
+Wenn die Existenz einer Klimaanlage in keinem Zusammenhang damit steht, ob auch ein Kamin im Haus ist, dann ist die beobachtete Differenz alleine auf den Zufall der Stichprobe zurück zu führen. 
+
+Wie Wahrscheinlich ist es also, wenn wir davon ausgehen, dass es keinen Zusammenhang gibt, dass so eine Antweilswertsdifferenz (oder eine noch extremere) zu beobachten ist?
+
+Dazu wollen wir diese Zusammenhangslosigkeit simulieren:
+
+2. Simulieren einer Verteilung gemäß der Nullhypothese (Nullverteilung)
+
+```{r}
+Nullvtlg <- do(10000) * 
+  diffprop(Kamin ~ shuffle(Klimaanlage), success = "Ja", data=Houses)
+```
+
+Die Verteilung sieht dann wie folgt aus:
+
+```{r}
+gf_histogram( ~ diffprop, data=Nullvtlg)
+```
+
+
+Um zu sehen, wie Wahrscheinlich unsere Wert aus der Stichprobe unter dieser Annahme ist, tragen wir ihn noch ein:
+```{r}
+gf_histogram( ~ diffprop, data=Nullvtlg) %>%
+  gf_vline(xintercept = propdiff.stipro)
+
+```
+
+
+3. P-Wert bestimmen
+
+Um den p-Wert zu bestimmen müssen wir zunächst die (absolute) Abweichung der Stichprobe bestimmen:
+
+```{r}
+abw.stipro <- abs(propdiff.stipro - 0)
+```
+
+Nun berechnen wir die (absoluten) Abweichungen der Nullverteilung:
+
+```{r}
+Nullvtlg %>%
+  mutate(abw = abs(diffprop - 0)) -> Nullvtlg
+```
+
+Nun schauen wir uns den p-Wert an, also die Anzahl der noch extremeren Abweichungen in der Nullverteilung bzgl. der Abweichung in der Stichprobe:
+
+```{r}
+pvalue <- prop( ~ (abw >= abw.stipro), data=Nullvtlg)
+pvalue
+```
+
+Der p-Wert liegt mit `r pvalue` unter unserem (üblichen) Signifikanzniveau von $\alpha = 0.05$.
+
+Ausgehen vom formalen Hypothesenpaar
+$$
+ H_0:  \pi_{\text{Mit Klimaanlage}} - \pi_{\text{Ohne Klimaanlage}} =  0 \text{ vs. }
+ H_A:  \pi_{\text{Mit Klimaanlage}} - \pi_{\text{Ohne Klimaanlage}} \neq  0,
+$$
+welches gleichbedeutend ist mit dem Hypothesenpaar:
+$$
+ H_0:  \pi_{\text{Mit Klimaanlage}} = \pi_{\text{Ohne Klimaanlage}} \text{ vs. }
+ H_A:  \pi_{\text{Mit Klimaanlage}} \neq \pi_{\text{Ohne Klimaanlage}} ,
+$$
+
+haben wir also ein Argument gegen die Nullhypothese ($H_0$) gefunden und lehnen diese daher auf Grundla-ge der Stichprobe fortan ab.
+
+
+
 
