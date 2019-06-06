@@ -1,0 +1,130 @@
+---
+title: "Erste Schritte in R"
+author: "Norman Markgraf"
+date: "5 6 2019"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(mosaic)
+```
+
+## Vorbereitung
+
+Wir starten als erstes das Paket *mosaic* und laden die Tabelle *Houses* aus dem Internet:
+
+```{r}
+# Paket laden
+library(mosaic)
+
+# URL
+daten_url <- "http://statistix.org/Data/SaratogaHouses.csv"
+
+# Daten einlesen
+Houses <- read.csv2(daten_url)
+```
+
+Einen kleinen Überblick liefert der Befehl *inspect()*:
+
+```{r}
+inspect(Houses)
+```
+
+
+## Eine kurze EDA einer kategorialer Variabel (Klimaanlage)
+
+```{r}
+# Die Verteilung als Säulendiagramm:
+gf_bar( ~ Klimaanlage, data=Houses)
+```
+
+```{r}
+# Tabelle:
+tally( ~ Klimaanlage, data=Houses)
+```
+
+```{r}
+# Anteilswerte:
+prop( ~ Klimaanlage, success="Ja", data=Houses)
+```
+
+
+## Eine kurze EDA einer numerischen Variabel (Preis)
+
+```{r}
+# Die Verteilung als Histogramm
+gf_histogram( ~ Preis, data=Houses)
+```
+
+```{r}
+# Übliche Kennzahlen zum Preis
+favstats( ~ Preis, data=Houses)
+```
+
+```{r}
+# Mittelwert / mittlerer Preis der Häuser
+mean( ~ Preis, data=Houses)
+```
+
+
+## Eine kurze EDA zweier kategorialer Variabeln (Kamin und Klimaanlage)
+
+```{r}
+# Grafische Darstellung als Mosaikplot
+mosaicplot(Kamin ~ Klimaanlage, data=Houses)
+```
+
+```{r}
+# Kreuztabelle der Beziehung
+tally(Kamin ~ Klimaanlage, data=Houses)
+```
+
+```{r}
+# Chi-Quadrat Test
+xchisq.test(Kamin ~ Klimaanlage, data=Houses)
+```
+
+
+##  Eine kurze EDA zweier numerischer Variabeln (Preis und Wohnflaeche)
+
+```{r}
+# Streudiagramm
+gf_point(Preis ~ Wohnflaeche, data=Houses)
+```
+
+
+```{r}
+# Korrelationskoeffizent der Stichprobe
+cor(Preis ~ Wohnflaeche, data=Houses)
+```
+
+```{r}
+# Korrelationstest
+cor.test(Preis ~ Wohnflaeche, data=Houses)
+```
+
+
+
+## Hat eine Klimaanlage einen Einfluss darauf ob es einen Kamin gibt?
+
+```{r}
+# Säulendiagramme als Visualisierung der Situation
+gf_bar( ~ Kamin | Klimaanlage, data= Houses)
+```
+
+
+```{r}
+# Anteilswerte
+prop( Kamin ~ Klimaanlage,
+      success = "Ja",
+      data=Houses)
+```
+
+```{r}
+# Anteilswertstest
+prop.test( Kamin ~ Klimaanlage,
+           success = "Ja",
+           data=Houses)
+```
+
