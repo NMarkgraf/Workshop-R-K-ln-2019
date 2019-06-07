@@ -1,7 +1,8 @@
 ---
-title: "Erste Schritte in R"
+title: "Etwas R am Abend"
+subtitle: "Eine erweiterte Mitschrift"
 author: "Norman Markgraf"
-date: "5 6 2019"
+date: "5. Juni 2019"
 output: word_document
 ---
 
@@ -171,7 +172,7 @@ t.test( Preis ~ Kamin,
 
 ## SBI ist nicht (nur) Sally Bollywood Investigation
 
-SBI heißt für uns *S*imulations*b*asierte *I*nferenz. Wir können die beiden Tests von oben (Anteilswertstest und t-Test) besser mit den Methoden der SBI lösen:
+SBI heißt für uns *S*imulations*b*asierte *I*nferenz. Wir können die beiden Tests von oben (Anteilswertstest und t-Test) auch (und vielleicht sogar besserverständlich) mit den Methoden der SBI lösen:
 
 ### Zusammenhang zwischen Kamin und Klimaanlage?
 
@@ -184,6 +185,16 @@ prop.test( Kamin ~ Klimaanlage,
 ```
 
 Wir wollen nun mit den Methoden aus der SBI das Problem erneut lösen:
+
+Wegen 
+```{r}
+prop(Kamin ~ Klimaanlage, success="Ja", data=Houses)
+```
+sehen wir, dass in der Stichprobe (also unseren Werten im Datensatz *Houses*) ein Unterschied zwischen Häusern mit und ohne Klimaanlage bzgl. des Kamins gibt.
+
+Wir fragen uns nun, ist das ein zufälliges Ergebnis unserer Stichprobe, oder liegt dahinter vielleicht eine Eigenschaft der Population/Grundgesamtheit.
+
+Dazu wählen wir ersteinmal eine Teststatistik, welche diesen Zusammenhang gut beschreibt:
 
 1. Teststatistik wählen
 
@@ -234,22 +245,26 @@ gf_histogram( ~ diffprop, data=Nullvtlg) %>%
 ```
 
 
-3. P-Wert bestimmen
+3. Den "P-Wert" bestimmen
 
-Um den p-Wert zu bestimmen müssen wir zunächst die (absolute) Abweichung der Stichprobe bestimmen:
+Der p-Wert ist auch nur ein Anteilswert. Er bescheibt, unter der Annahme dass die $H_0$ gelte, wie häufig solche Werte, wie der der Stichprobe und noch extremere, bei der Teststatistik vorkommen können. 
+Da wir ungerichtet gefragt haben, interessieren uns also die Abweichungen in beide Richtungen, also die absoluten Abweichungen von der $H_0$. 
+Diese sagte aus, dass die wahre Antweilswertsdifferenz 0 sei, also bestimmen wir zunächst den Wert für unsere Stichprobe:
 
 ```{r}
+# Abweichung der stichprobe von dem Wert unter der H_0:
 abw.stipro <- abs(propdiff.stipro - 0)
 ```
 
-Nun berechnen wir die (absoluten) Abweichungen der Nullverteilung:
+
+Das selbe machen wir nun für jeden Wert unserer Nullverteilung und speichern die Werte in der neuen Spalte/Variable *abw*:
 
 ```{r}
 Nullvtlg %>%
   mutate(abw = abs(diffprop - 0)) -> Nullvtlg
 ```
 
-Nun schauen wir uns den p-Wert an, also die Anzahl der noch extremeren Abweichungen in der Nullverteilung bzgl. der Abweichung in der Stichprobe:
+Jetzt können wir den Antweilswert aller der Abweichungen der Nullverteilung bestimmen, die Mindestens so extrem (oder noch extremer) sind wie die der Stichprobe. Das ist der sogenannte **p-Wert**:
 
 ```{r}
 pvalue <- prop( ~ (abw >= abw.stipro), data=Nullvtlg)
@@ -263,14 +278,107 @@ $$
  H_0:  \pi_{\text{Mit Klimaanlage}} - \pi_{\text{Ohne Klimaanlage}} =  0 \text{ vs. }
  H_A:  \pi_{\text{Mit Klimaanlage}} - \pi_{\text{Ohne Klimaanlage}} \neq  0,
 $$
-welches gleichbedeutend ist mit dem Hypothesenpaar:
+welches gleichbedeutend ist mit 
 $$
  H_0:  \pi_{\text{Mit Klimaanlage}} = \pi_{\text{Ohne Klimaanlage}} \text{ vs. }
  H_A:  \pi_{\text{Mit Klimaanlage}} \neq \pi_{\text{Ohne Klimaanlage}} ,
 $$
 
-haben wir also ein Argument gegen die Nullhypothese ($H_0$) gefunden und lehnen diese daher auf Grundla-ge der Stichprobe fortan ab.
+haben wir mit dem *p-Wert* nun ein Argument gegen die Nullhypothese ($H_0$) gefunden und lehnen diese daher -- auf Grundlage der Stichprobe und damit vorläufig -- fortan ab.
 
 
+### Hat ein Kamin einen Einfluss auf den Preis des Hauses?
+
+Auch diese Frage haben wir oben bereits mit Hilfe eines t-Tests beantwortet. Aber auch hier kann SBI helfen.
+
+1. Wahl der Teststatistik
+
+Wärend der t-Test den t-Wert, also die Abweichung des gemessenen Mittelwertes vom hypotetisch angenommenen Mittelwert in Standardfehlern misst und diesen mit der t-Verteilung vergleicht. Gehen wir bei SBI einen direkteren Weg.
+Unsere Teststatistik ist die Mittelwertsdifferenz. Wir vergleichen dann die gemessene Mittelwertsdifferenz mit denen, die gewöhnlich unter Annahme der $H_0$ -- also das diese Differenz verschwindet -- vorkommenden Werten von (simulierten) Stichproben (mit dieser Eigenschaft).
+
+Wir berechnen also zuerst die Mittelwertsdifferenz der Stichprobe mit:
+
+```{r}
+meandiff.stipro <- diffmean(Preis ~ Kamin, data=Houses)
+meandiff.stipro
+```
+
+Wegen
+
+```{r}
+mean(Preis ~ Kamin, data=Houses)
+```
+
+haben wir also
+$$
+\hat\mu_{\text{Kein Kamin}} - \hat\mu_{\text{Mit Kamin}} = `r meandiff.stipro`
+$$
+
+Um zu Testen ob eine solche Differenz auch in der Population zu erwarten ist oder ob dort eigentlich keine Differenz existiert wollen wir diese Zusammenhangslosigkeit simulieren:
+
+2. Simulieren einer Verteilung gemäß der Nullhypothese (Nullverteilung)
+
+```{r}
+Nullvtlg <- do(10000) * 
+  diffmean(Preis ~ shuffle(Kamin),  data=Houses)
+```
+
+Die Verteilung sieht dann wie folgt aus:
+
+```{r}
+gf_histogram( ~ diffmean, data=Nullvtlg)
+```
+
+Tragen wir nun noch die Mittelwertsdifferenz in das Diagramm ein, so erhalten wir:
+```{r}
+gf_histogram( ~ diffmean, data=Nullvtlg) %>%
+  gf_vline(xintercept = meandiff.stipro)
+```
+
+Offenbar ist ein solcher Mittelwertsunterschied nicht üblich, wenn die Nullhypothese gilt. 
+
+3. Den "P-Wert" bestimmen
+
+Analog zu oben berechnen wir zunächst die Abweichung:
+```{r}
+# Abweichung der stichprobe von dem Wert unter der H_0:
+abw.stipro <- abs(meandiff.stipro - 0)
+```
 
 
+Das selbe machen wir nun für jeden Wert unserer Nullverteilung und speichern die Werte in der neuen Spalte/Variable *abw*:
+
+```{r}
+Nullvtlg %>%
+  mutate(abw = abs(diffmean - 0)) -> Nullvtlg
+```
+
+Jetzt können wir den Antweilswert aller der Abweichungen der Nullverteilung bestimmen, die Mindestens so extrem (oder noch extremer) sind wie die der Stichprobe. Das ist der sogenannte **p-Wert**:
+
+```{r}
+pvalue <- prop( ~ (abw >= abw.stipro), data=Nullvtlg)
+pvalue
+```
+
+Der p-Wert liegt mit `r pvalue` unter unserem (üblichen) Signifikanzniveau von $\alpha = 0.05$.
+
+Ausgehen vom formalen Hypothesenpaar
+$$
+ H_0:  \mu_{\text{Mit Kamin}} - \mu_{\text{Ohne Kamin}} =  0 \text{ vs. }
+ H_A:  \mu_{\text{Mit Kamin}} - \mu_{\text{Ohne Kamin}} \neq  0,
+$$
+welches gleichbedeutend ist mit 
+$$
+ H_0:  \mu_{\text{Mit Kamin}} = \mu_{\text{Ohne Kamin}} \text{ vs. }
+ H_A:  \mu_{\text{Mit Kamin}} = \mu_{\text{Ohne Kamin}},
+$$
+
+haben wir mit dem *p-Wert* nun ein Argument gegen die Nullhypothese ($H_0$) gefunden und lehnen diese daher -- auf Grundlage der Stichprobe und damit vorläufig -- fortan ab.
+
+## Epilog
+
+Ich hoffe ich konnte Ihnen den Einsatz von R (und R markdown) ein klein wenig näher bringen. Falls Sie noch Fragen haben, so können Sie mich gerne unter
+
+[nmarkgraf@hotmail.com](mailto:nmarkgraf@hotmail.com?subject=FOM-Workshop-SoSe2019)
+
+anschreiben. Bitte nutzen Sie den Betreff "FOM-Workshop-SoSe2019". - Danke und viel Erfolg weiterhin im Studium!
