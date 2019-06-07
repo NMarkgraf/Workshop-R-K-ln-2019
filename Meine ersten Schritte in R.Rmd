@@ -3,7 +3,11 @@ title: "Etwas R am Abend"
 subtitle: "Eine erweiterte Mitschrift"
 author: "Norman Markgraf"
 date: "5. Juni 2019"
-output: word_document
+output:
+  html_document:
+    df_print: paged
+  pdf_document: default
+  word_document: default
 ---
 
 ```{r setup, include=FALSE}

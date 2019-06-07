@@ -4,4 +4,7 @@
 .Ruserdata
 *.Rproj
 *.docx
+*.pdf
+*.html
+Workshop*.zip
 *_files/
